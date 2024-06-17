@@ -16,6 +16,7 @@ package control
 import (
 	"context"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -143,6 +144,8 @@ type Manager struct {
 	logger *logrus.Entry
 }
 
+var corednsRe = regexp.MustCompile(`.*rewrite name ([^\s]+) ([^\s]+)`)
+
 // Restart coredns pods
 func coreDnsRestart(ctx context.Context, m *Manager) error {
 	var pods v1.PodList
@@ -189,12 +192,27 @@ func addCoreDnsRewrite(ctx context.Context, m *Manager, name *types.NamespacedNa
 		var coreFileUpdated = false
 		for i, line := range lines {
 			if strings.Contains(line, serviceFqdn) {
-				// matched line already exists
+				// check whether update is needed
+				matches := corednsRe.FindStringSubmatch(line)
+				if len(matches) == 3 {
+					dnsNameExist := matches[1]
+					if dnsNameExist != dnsName {
+						m.logger.Infof("dnsName changed from %s to %s", dnsNameExist, dnsName)
+						// update end exit for loop
+						//lines = append(lines[:i], lines[i+1:]...)
+						//lines = append(lines[:i+1], lines[i:]...)
+						lines[i] = fmt.Sprintf("    rewrite name %s %s", dnsName, serviceFqdn)
+						coreFileUpdated = true
+						break
+					}
+				} else {
+					m.logger.Errorf("failed to extract dns_name from matched line: %s", line)
+				}
 				break
 			}
 			// ready marker is reached - matched line not found, append it here
 			if strings.Contains(line, "    ready") {
-				// add matched line
+				// add and exit for loop
 				lines = append(lines[:i+1], lines[i:]...)
 				lines[i] = fmt.Sprintf("    rewrite name %s %s", dnsName, serviceFqdn)
 				coreFileUpdated = true
