@@ -114,7 +114,9 @@ rules:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
+  - rolebindings
   - clusterroles
+  - roles
   verbs:
   - create
   - delete

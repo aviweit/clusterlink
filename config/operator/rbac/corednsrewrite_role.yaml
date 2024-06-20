@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: corednsrewrite
+  name: cl-operator-manager-role-corednsrewrite
   namespace: kube-system
 rules:
 - apiGroups:

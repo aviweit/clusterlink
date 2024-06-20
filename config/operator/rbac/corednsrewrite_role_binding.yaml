@@ -2,12 +2,12 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: corednsrewrite
+  name: cl-operator-manager-rolebinding-corednsrewrite
   namespace: kube-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: corednsrewrite
+  name: cl-operator-manager-role-corednsrewrite
 subjects:
 - kind: ServiceAccount
   name: cl-operator-controller-manager
