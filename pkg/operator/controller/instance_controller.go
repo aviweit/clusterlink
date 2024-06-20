@@ -77,6 +77,8 @@ type InstanceReconciler struct {
 //nolint:lll // Ignore long line warning for Kubebuilder command.
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles;clusterrolebindings,verbs=list;get;watch;create;update;patch;delete
 
+// TODO [weit] - annotations for corednsrewrite roles
+
 // TODO- should review the operator RABCs.
 
 // SetupWithManager sets up the controller with the Manager.
@@ -430,13 +432,6 @@ func (r *InstanceReconciler) createAccessControl(ctx context.Context, name, name
 				},
 			},
 			{
-				APIGroups: []string{""},
-				Resources: []string{"configmaps"},
-				Verbs: []string{
-					"get", "list", "update", "watch",
-				},
-			},
-			{
 				APIGroups: []string{"discovery.k8s.io"},
 				Resources: []string{"endpointslices"},
 				Verbs: []string{
@@ -488,7 +483,52 @@ func (r *InstanceReconciler) createAccessControl(ctx context.Context, name, name
 			},
 		},
 	}
-	return r.createResource(ctx, clusterRoleBinding)
+	if err := r.createResource(ctx, clusterRoleBinding); err != nil {
+		return err
+	}
+
+	corednsrewriteRole := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "corednsrewrite",
+			Namespace: "kube-system",
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups:     []string{""},
+				Resources:     []string{"configmaps"},
+				ResourceNames: []string{"coredns"},
+				Verbs: []string{
+					"get", "list", "watch", "update",
+				},
+			},
+		},
+	}
+
+	if err := r.createResource(ctx, corednsrewriteRole); err != nil {
+		return err
+	}
+
+	// Create ClusterRoleBinding for the controlplane.
+	corednsrewriteRoleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "corednsrewrite",
+			Namespace: "kube-system",
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     "corednsrewrite",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      ControlPlaneName,
+				Namespace: namespace,
+			},
+		},
+	}
+
+	return r.createResource(ctx, corednsrewriteRoleBinding)
 }
 
 // createExternalService sets up the external service for the project.

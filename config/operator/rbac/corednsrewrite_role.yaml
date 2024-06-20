@@ -1,0 +1,17 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cl-operator-namespaced-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  resourceNames: 
+  - "coredns"
+  verbs:
+  - get
+  - list
+  - update
+  - watch
