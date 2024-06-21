@@ -9,8 +9,8 @@ rules:
   - ""
   resources:
   - configmaps
-  resourceNames: 
-  - "coredns"
+#  resourceNames: 
+#  - "coredns"
   verbs:
   - get
   - list

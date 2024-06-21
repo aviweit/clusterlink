@@ -493,9 +493,9 @@ func (r *InstanceReconciler) createAccessControl(ctx context.Context, name, name
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups:     []string{""},
-				Resources:     []string{"configmaps"},
-				ResourceNames: []string{"coredns"},
+				APIGroups: []string{""},
+				Resources: []string{"configmaps"},
+				// ResourceNames: []string{"coredns"},
 				Verbs: []string{
 					"get", "list", "watch", "update",
 				},
