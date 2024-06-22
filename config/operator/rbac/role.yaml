@@ -7,6 +7,15 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - nodes
   verbs:
   - get
@@ -115,6 +124,7 @@ rules:
   resources:
   - clusterrolebindings
   - clusterroles
+  - rolebindings
   verbs:
   - create
   - delete
