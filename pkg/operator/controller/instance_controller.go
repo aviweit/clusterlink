@@ -430,13 +430,6 @@ func (r *InstanceReconciler) createAccessControl(ctx context.Context, name, name
 				},
 			},
 			{
-				APIGroups: []string{""},
-				Resources: []string{"configmaps"},
-				Verbs: []string{
-					"get", "list", "update", "watch",
-				},
-			},
-			{
 				APIGroups: []string{"discovery.k8s.io"},
 				Resources: []string{"endpointslices"},
 				Verbs: []string{
@@ -488,7 +481,51 @@ func (r *InstanceReconciler) createAccessControl(ctx context.Context, name, name
 			},
 		},
 	}
-	return r.createResource(ctx, clusterRoleBinding)
+
+	if err := r.createResource(ctx, clusterRoleBinding); err != nil {
+		return err
+	}
+
+	corednsrewriteRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name + "dns" + namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"configmaps"},
+				// ResourceNames: []string{"coredns"},
+				Verbs: []string{
+					"get", "list", "watch", "update",
+				},
+			},
+		},
+	}
+
+	if err := r.createResource(ctx, corednsrewriteRole); err != nil {
+		return err
+	}
+	// Create ClusterRoleBinding for the controlplane.
+	corednsrewriteRoleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "corednsrewrite",
+			Namespace: "kube-system",
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     name + "dns" + namespace,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      ControlPlaneName,
+				Namespace: namespace,
+			},
+		},
+	}
+
+	return r.createResource(ctx, corednsrewriteRoleBinding)
 }
 
 // createExternalService sets up the external service for the project.
