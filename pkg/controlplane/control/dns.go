@@ -18,8 +18,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,22 +30,47 @@ import (
 
 // Restart coredns pods
 func restartCoreDNS(ctx context.Context, mClient client.Client, logger *logrus.Entry) error {
-	var pods v1.PodList
-	if err := mClient.List(ctx, &pods, client.InNamespace("kube-system")); err != nil {
+	corednsName := types.NamespacedName{
+		Name:      "coredns",
+		Namespace: "kube-system",
+	}
+
+	var deployment appsv1.Deployment
+	if err := mClient.Get(ctx, corednsName, &deployment); err != nil {
 		return err
 	}
+	//logger.Infof("restartCoreDNS: deployment %v", deployment)
+	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().String()
+	//logger.Infof("restartCoreDNS: [after] deployment %v", deployment)
 
-	for _, pod := range pods.Items {
-		if strings.Contains(pod.Name, "coredns") {
-			logger.Infof("Deleting pod: %s/%s.", pod.Namespace, pod.Name)
-			err := mClient.Delete(ctx, &pod)
-			if err != nil {
-				return err
-			}
-		}
+	if err := mClient.Patch(ctx, &deployment, client.StrategicMergeFrom(&deployment)); err != nil {
+		return err
 	}
-
+	//logger.Infof("**** After update deployment %v", deployment)
 	return nil
+
+	// mergePatch, err := json.Marshal(map[string]interface{}{
+	// 	"spec": map[string]interface{}{
+	// 		"template": map[string]interface{}{
+	// 			"annotations": map[string]interface{}{
+	// 				"kubectl.kubernetes.io/restartedAt": time.Now().String(),
+	// 			},
+	// 		},
+	// 	},
+	// })
+	// if err != nil {
+	// 	return err
+	// }
+
+	// mClient.Patch(
+	// 	ctx,
+	// 	&deployment,
+	// 	client.MergedFrom(&deployment),
+	// 	//		k8s.Patch{
+	// 	//			PatchType: types.StrategicMergePatchType,
+	// 	//			Data:      mergePatch,
+	// 	//		},
+	// )
 }
 
 // Add coredns rewrite for a given external dns service
