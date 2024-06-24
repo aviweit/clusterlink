@@ -24,53 +24,32 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// Restart coredns pods
+// Restart coredns deployment
 func restartCoreDNS(ctx context.Context, mClient client.Client, logger *logrus.Entry) error {
-	corednsName := types.NamespacedName{
-		Name:      "coredns",
-		Namespace: "kube-system",
-	}
+	logger.Infof("restarting coredns deployment")
+	patch := []byte(
+		fmt.Sprintf(
+			`{"spec": {"template": {"metadata": {"annotations":{"kubectl.kubernetes.io/restartedAt": "%s"}}}}}`,
+			time.Now().String(),
+		),
+	)
 
-	var deployment appsv1.Deployment
-	if err := mClient.Get(ctx, corednsName, &deployment); err != nil {
+	if err := mClient.Patch(ctx, &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "kube-system",
+			Name:      "coredns",
+		},
+	}, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
 		return err
 	}
-	//logger.Infof("restartCoreDNS: deployment %v", deployment)
-	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().String()
-	//logger.Infof("restartCoreDNS: [after] deployment %v", deployment)
 
-	if err := mClient.Patch(ctx, &deployment, client.StrategicMergeFrom(&deployment)); err != nil {
-		return err
-	}
-	//logger.Infof("**** After update deployment %v", deployment)
 	return nil
 
-	// mergePatch, err := json.Marshal(map[string]interface{}{
-	// 	"spec": map[string]interface{}{
-	// 		"template": map[string]interface{}{
-	// 			"annotations": map[string]interface{}{
-	// 				"kubectl.kubernetes.io/restartedAt": time.Now().String(),
-	// 			},
-	// 		},
-	// 	},
-	// })
-	// if err != nil {
-	// 	return err
-	// }
-
-	// mClient.Patch(
-	// 	ctx,
-	// 	&deployment,
-	// 	client.MergedFrom(&deployment),
-	// 	//		k8s.Patch{
-	// 	//			PatchType: types.StrategicMergePatchType,
-	// 	//			Data:      mergePatch,
-	// 	//		},
-	// )
 }
 
 // Add coredns rewrite for a given external dns service
